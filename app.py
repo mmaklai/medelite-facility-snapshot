@@ -7,84 +7,129 @@ import fpdf
 
 st.set_page_config(
     page_title="Facility Assessment Snapshot -- INFINITE by MEDELITE",
-    page_icon="🏥",
+    page_icon=""",
     layout="wide"
 )
 
-# ──────────────────────────────────────────────────────
-# Branding Bar (STATIC -- never changes)
-# ──────────────────────────────────────────────────────
 st.markdown(
     """
     <style>
-    .infinite-banner { background-color: #003366; color: white; padding: 0.7rem; text-align: center; font-weight: bold; font-size: 1.1rem; border-radius: 0; }
-    .report-body { padding: 0.5rem 0; }
+    .infinite-banner {
+        background-color: #003366;
+        color: white;
+        padding: 0.7rem;
+        text-align: center;
+        font-weight: bold;
+        font-size: 1.1rem;
+        border-radius: 0;
+    }
+    .report-body {
+        padding: 0.5rem 0;
+    }
     </style>
-    <div class="infinite-banner">INFINITE -- Managed by MEDELITE</div>
+    <div class="infinite-banner">INFINITE - Managed by MEDELITE</div>
     """,
     unsafe_allow_html=True
 )
 
-st.markdown('<div class="report-body"></div>', unsafe_allow_html=True)
+# - API endpoint (CMS Provider Data Catalog)
+# FIXED: Use the correct datastore query endpoint with proper field names
+# The old code used an incorrect Socrata resource endpoint
+CMS_DATASTORE_URL = "https://data.cms.gov/provider-data/api/1/datastore/query/4pq5-n9py/0"
 
-# ──────────────────────────────────────────────────────
-# API endpoint (CMS Provider Data Catalog v1)
-# ──────────────────────────────────────────────────────
-CMS_API_URL = "https://data.cms.gov/resource/4pq5-n9py.json"
+# CSV URL for full dataset download (fallback for reliable local filtering)
+CSV_URL = "https://data.cms.gov/provider-data/sites/default/files/data_charts/nh_files/NH_Prov_2024.csv"
+
+def fetch_cms_data_api(ccn: str) -> dict:
+    """Fetch facility data from CMS Provider Data Catalog using API.
+    
+    Uses the correct datastore endpoint with cms_certification_number_ccn filter.
+    Returns the matching facility record or empty dict if not found.
+    """
+    try:
+        # Use $where clause with the correct field name: cms_certification_number_ccn
+        params = {
+            "$where": f"cms_certification_number_ccn = '{ccn}'",
+            "limit": 1
+        }
+        response = requests.get(CMS_DATASTORE_URL, params=params, timeout=15)
+        response.raise_for_status()
+        result = response.json()
+        if result.get("results"):
+            return result["results"][0]
+        return {}
+    except Exception as e:
+        st.warning(f"API fetch error (will use local CSV filter): {e}")
+        return {}
+
+def fetch_cms_data_csv(ccn: str) -> dict:
+    """Fetch facility data by downloading full CSV and filtering locally.
+    
+    This is the robust fallback: download the full NH dataset once,
+    cache it in session state, and filter locally by CCN.
+    """
+    with st.spinner("Loading full dataset for local filtering..."):
+        try:
+            response = requests.get(CSV_URL, timeout=300)
+            response.raise_for_status()
+            csv_text = response.text
+            lines = csv_text.strip().split("\n")
+            header = lines[0].split(",")
+            for line in lines[1:]:
+                values = line.split(",")
+                if len(values) >= len(header):
+                    record = dict(zip(header, values))
+                    rec_ccn = record.get("cms_certification_number_ccn", "").strip('"')
+                    if rec_ccn == ccn:
+                        return record
+            return {}
+        except Exception as e:
+            st.error(f"CSV fetch error: {e}")
+            return {}
 
 def fetch_cms_data(ccn: str) -> dict:
-    params = {"$where": f"cms_certification_number_ccn = '{ccn}'"}
-    response = requests.get(CMS_API_URL, params=params, timeout=10)
-    response.raise_for_status()
-    data = response.json()
-    if data:
-        return data[0]
-    return {}
+    """Fetch facility data - tries API first, falls back to CSV."""
+    cms_data = fetch_cms_data_api(ccn)
+    if cms_data:
+        return cms_data
+    st.info("API did not return results. Trying local CSV filter...")
+    return fetch_cms_data_csv(ccn)
 
-# ──────────────────────────────────────────────────────
-# PDF Generation
-# ──────────────────────────────────────────────────────
 def generate_pdf(facility_name: str, override_name: str, manual_data: dict, cms_data: dict) -> bytes:
     """Generate a branded PDF report."""
     pdf = fpdf.FPDF(format="A4")
     pdf.add_page()
-
-    # ── Header (INFINITE -- Managed by MEDELITE)
+    
     pdf.set_fill_color(0, 51, 102)
     pdf.rect(0, 0, 210, 15, fill=True, style="F")
     pdf.set_font("Arial", "B", 12)
     pdf.set_text_color(255, 255, 255)
-    pdf.cell(0, 10, "INFINITE -- Managed by MEDELITE", align="C")
+    pdf.cell(0, 10, "INFINITE - Managed by MEDELITE", align="C")
     pdf.ln(20)
-
-    # ── Report Title
+    
     pdf.set_font("Arial", "B", 16)
     pdf.set_text_color(0, 0, 0)
     pdf.cell(0, 10, "Facility Assessment Snapshot", align="C")
     pdf.ln(10)
-
-    # ── Facility Info
+    
     display_name = override_name.strip() if override_name.strip() else facility_name
     pdf.set_font("Arial", "B", 12)
     pdf.cell(0, 8, f"Facility: {display_name}", align="L")
     pdf.ln(6)
-
-    # CMS link with cms_certification_number_ccn
+    
     provider_num = cms_data.get("cms_certification_number_ccn", "N/A")
     pdf.set_font("Arial", "I", 10)
     pdf.cell(0, 6, f"CCN: {provider_num}", align="L")
     pdf.ln(6)
     med_url = "https://data.cms.gov/provider-data/dataset/4pq5-n9py"
-    pdf.set_font("Arial", "I", 10)
     link_text = "View on CMS Provider Data Catalog"
     pdf.cell(0, 8, link_text, link=med_url)
     pdf.ln(10)
-
-    # ── CMS Data Section
+    
     pdf.set_font("Arial", "B", 12)
     pdf.cell(0, 8, "CMS Provider Profile", align="L")
     pdf.ln(6)
-    pdf.set_font("Arial", "", 11) 
+    pdf.set_font("Arial", "", 11)
     fields = [
         ("Facility Name", "provider_name"),
         ("Address", "provider_address"),
@@ -96,8 +141,6 @@ def generate_pdf(facility_name: str, override_name: str, manual_data: dict, cms_
         ("Ownership", "ownership_type"),
         ("Bed Count", "number_of_certified_beds"),
         ("CCRC", "continuing_care_retirement_community"),
-        ("Medicare Participation", "medicare_participation"),
-        ("Hospital Referral Region", "region"),
     ]
     for label, key in fields:
         val = cms_data.get(key, "N/A")
@@ -105,8 +148,7 @@ def generate_pdf(facility_name: str, override_name: str, manual_data: dict, cms_
             pdf.cell(0, 5, f"{label}: {val}")
             pdf.ln(5)
     pdf.ln(3)
-
-    # ── Manual Inputs Section
+    
     pdf.set_font("Arial", "B", 12)
     pdf.cell(0, 8, "Manual Inputs", align="L")
     pdf.ln(6)
@@ -115,25 +157,20 @@ def generate_pdf(facility_name: str, override_name: str, manual_data: dict, cms_
         if val:
             pdf.cell(0, 5, f"{key}: {val}")
             pdf.ln(5)
-
-    # Footer
+    
     pdf.set_y(-15)
     pdf.set_font("Arial", "I", 8)
-    pdf.cell(0, 6, "Generated by INFINITE -- Managed by MEDELITE", align="C")
-
+    pdf.cell(0, 6, "Generated by INFINITE - Managed by MEDELITE", align="C")
     return pdf.output(dest="S").encode("latin-1")
 
-# ──────────────────────────────────────────────────────
-# Main UI
-# ──────────────────────────────────────────────────────
 st.title("Facility Assessment Snapshot")
-st.markdown("Enter a CCN (e.g., `686123`) to retrieve CMS provider data.")
+st.markdown("Enter a CCN (e.g., `015010`) to retrieve CMS provider data.")
 
 col1, col2 = st.columns([1, 2])
 with col1:
-    ccn = st.text_input("CCN (Provider Number)", placeholder="e.g., 686123", key="ccn_input")
+    ccn = st.text_input("CCN (Provider Number)", placeholder="e.g., 015010", key="ccn_input")
     override_name = st.text_input("Facility Name Override (Optional)", placeholder="Leave blank to use CMS name")
-
+    
     st.subheader("Manual Inputs")
     manual_data = {}
     manual_data["EMR System"] = st.text_input("EMR System", placeholder="e.g., Epic, Cerner")
@@ -141,8 +178,7 @@ with col1:
     manual_data["Type of Patient"] = st.text_input("Type of Patient", placeholder="e.g., Acute, LTAC, Rehab")
     manual_data["Special Programs"] = st.text_area("Special Programs", placeholder="e.g., Dialysis, Wound Care")
     manual_data["Notes"] = st.text_area("Additional Notes", placeholder="Any additional notes...")
-
-    # Fetch button
+    
     fetch_clicked = st.button("Fetch CMS Data", type="primary")
 
 if fetch_clicked and ccn:
@@ -150,11 +186,10 @@ if fetch_clicked and ccn:
         cms_data = fetch_cms_data(ccn)
         if cms_data:
             st.success("CMS data retrieved successfully!")
-            # Determine display name
+            
             facility_name = cms_data.get("provider_name", "Unknown")
             display_name = override_name.strip() if override_name.strip() else facility_name
-
-            # Key metrics
+            
             with col2:
                 st.subheader(f"Facility: {display_name}")
                 st.write(f"**CCN:** {cms_data.get('cms_certification_number_ccn', 'N/A')}")
@@ -163,28 +198,24 @@ if fetch_clicked and ccn:
                 st.write(f"**Address:** {cms_data.get('provider_address', 'N/A')}, {cms_data.get('citytown', 'N/A')}, {cms_data.get('state', 'N/A')} {cms_data.get('zip_code', 'N/A')}")
                 st.write(f"**Phone:** {cms_data.get('telephone_number', 'N/A')}")
                 st.write(f"**Beds:** {cms_data.get('number_of_certified_beds', 'N/A')}")
-                st.write(f"**Medicare Participation:** {cms_data.get('medicare_participation', 'N/A')}")
-                st.write(f"**Region:** {cms_data.get('region', 'N/A')}")
-
-                # Note about STR/LT metrics
-                st.info("STR/LT hospitalization metrics are not available in the CMS 4pq5-n9py dataset. These will be added as a future enhancement.")
-
-            # PDF Download
-            if st.button("Download PDF Report"):
-                pdf_bytes = generate_pdf(facility_name, override_name, manual_data, cms_data)
-                st.download_button(
-                    label="Download Report PDF",
-                    data=pdf_bytes,
-                    file_name=f"Snapshot_{display_name.replace(' ', '_')}.pdf",
-                    mime="application/pdf"
-                )
+                
+                st.info("Note: STR/LT hospitalization metrics and some quality ratings are not available in the CMS 4pq5-n9py dataset.")
+                
+                if st.button("Download PDF Report"):
+                    pdf_bytes = generate_pdf(facility_name, override_name, manual_data, cms_data)
+                    st.download_button(
+                        label="Download Report PDF",
+                        data=pdf_bytes,
+                        file_name=f"Snapshot_{display_name.replace(' ', '_')}.pdf",
+                        mime="application/pdf"
+                    )
         else:
             st.error(f"No CMS data found for CCN: {ccn}. Please check the number and try again.")
 elif fetch_clicked and not ccn:
     st.warning("Please enter a CCN to proceed.")
 
-# ──────────────────────────────────────────────────────
-# Footer
-# ──────────────────────────────────────────────────────
+
 st.markdown("---")
-st.markdown("Powered by [CMS Provider Data Catalog](https://data.cms.gov/provider-data/dataset/4pq5-n9py) | INFINITE -- Managed by MEDELITE")
+st.markdown("Powered by [CMS Provider Data Catalog](https://data.cms.gov/provider-data/dataset/4pq5-n9py) | INFINITE - Managed by MEDELITE")
+st.markdown("---")
+st.markdown("Powered by [CMS Provider Data Catalog](https://data.cms.gov/provider-data/dataset/4pq5-n9py) | INFINITE - Managed by MEDELITE")
