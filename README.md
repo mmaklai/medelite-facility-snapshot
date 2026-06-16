@@ -1,0 +1,1 @@
+# medelite-facility-snapshot
