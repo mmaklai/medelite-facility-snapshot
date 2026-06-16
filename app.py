@@ -30,27 +30,16 @@ st.markdown('<div class="report-body"></div>', unsafe_allow_html=True)
 # ──────────────────────────────────────────────────────
 # API endpoint (CMS Provider Data Catalog v1)
 # ──────────────────────────────────────────────────────
-CMS_API_URL = "https://data.cms.gov/provider-data/api/1/datastore/query/4pq5-n9py/0"
+CMS_API_URL = "https://data.cms.gov/resource/4pq5-n9py.json"
 
 def fetch_cms_data(ccn: str) -> dict:
-    """Fetch facility data from CMS Provider Data Catalog v1 API."""
-    try:
-        # Normalize CCN by padding with leading zeros to 6 digits
-        ccn_padded = ccn.zfill(6)
-        params = {
-            "cms_certification_number_ccn": ccn_padded,
-            "limit": 1,
-            "results": "true"
-        }
-        response = requests.get(CMS_API_URL, params=params, timeout=10)
-        response.raise_for_status()
-        data = response.json()
-        if data.get("results"):
-            return data["results"][0]  # Return the first (and typically only) match
-        return {}
-    except Exception as e:
-        st.error(f"Error fetching CMS data: {e}")
-        return {}
+    params = {"$where": f"cms_certification_number_ccn = '{ccn}'"}
+    response = requests.get(CMS_API_URL, params=params, timeout=10)
+    response.raise_for_status()
+    data = response.json()
+    if data:
+        return data[0]
+    return {}
 
 # ──────────────────────────────────────────────────────
 # PDF Generation
@@ -95,7 +84,7 @@ def generate_pdf(facility_name: str, override_name: str, manual_data: dict, cms_
     pdf.set_font("Arial", "B", 12)
     pdf.cell(0, 8, "CMS Provider Profile", align="L")
     pdf.ln(6)
-    pdf.set_font("Arial", "", 11)
+    pdf.set_font("Arial", "", 11) 
     fields = [
         ("Facility Name", "provider_name"),
         ("Address", "provider_address"),
