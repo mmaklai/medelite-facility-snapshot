@@ -131,6 +131,16 @@ def fetch_claims_data(ccn: str) -> dict:
     """
     try:
         rows = _fetch_sql(CLAIMS_DS, ccn, limit=100)
+
+        # ── DEBUG: show raw API response so we can verify column names ──
+        if rows:
+            with st.expander("🔧 Debug: Raw claims API response (first 3 rows)", expanded=False):
+                st.json(rows[:3])
+        else:
+            with st.expander("🔧 Debug: Claims API returned no rows", expanded=True):
+                st.warning(f"No rows returned from dataset {CLAIMS_DS} for CCN {ccn}")
+        # ── end debug ──
+
         if not rows:
             return {}
 
