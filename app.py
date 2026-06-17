@@ -36,69 +36,47 @@ st.markdown(
 )
 
 # CMS Provider Data Catalog
-DATASET_PAGE_URL = "https://data.cms.gov/provider-data/dataset/4pq5-n9py"
 CMS_DATASTORE_URL = "https://data.cms.gov/provider-data/api/1/datastore/query/4pq5-n9py/0"
+PROVIDER_CSV_URL = "https://data.cms.gov/provider-data/sites/default/files/resources/f4df3b5e6a227d95033c3f32ad5fad08_1778861747/NH_ProviderInfo_May2026.csv"
 
-def get_csv_download_url() -> str:
-    """Fetch the current CSV download URL from the dataset page.
-    The download link URL changes dynamically with each dataset update.
-    """
-    try:
-        resp = requests.get(DATASET_PAGE_URL, timeout=30)
-        resp.raise_for_status()
-        soup = BeautifulSoup(resp.text, "html.parser")
-        download_link = soup.find("a", href=lambda h: h and h.endswith(".csv") and "NH_Provider" in h)
-        if download_link and download_link.get("href"):
-            href = download_link["href"]
-            if href.startswith("/"):
-                return "https://data.cms.gov" + href
-            return href
-    except Exception as e:
-        st.warning(f"Could not fetch CSV URL from dataset page: {e}")
-        raise ValueError("Could not find CSV download URL on dataset page.")
+
 
 def fetch_cms_data_api(ccn: str) -> dict:
-    """Fetch facility data from CMS Provider Data Catalog using API.
-    NOTE: The $where filter on this endpoint is known to be unreliable.
-    It may return results for a different CCN than requested.
-    Falls back to CSV-based local filtering if no results or wrong CCN.
-    """
     try:
         params = {
-            "$where": f"cms_certification_number_ccn = '{ccn}'",
-            "limit": 1
+            "$where": f"cms_certification_number_ccn='{ccn}'",
+            "$limit": 1
         }
-        response = requests.get(CMS_DATASTORE_URL, params=params, timeout=15)
+        response = requests.get(CMS_DATASTORE_URL, params=params, timeout=20)
         response.raise_for_status()
         result = response.json()
-        if result.get("results"):
-            record = result["results"][0]
-            # Verify the returned CCN matches what we asked for
-            returned_ccn = record.get("cms_certification_number_ccn", "").strip()
-            if returned_ccn == ccn:
-                return record
+        rows = result.get("results", [])
+        if rows:
+            row = rows[0]
+            if str(row.get("cms_certification_number_ccn", "")).strip() == ccn.strip():
+                return row
+        return {}
     except Exception as e:
         st.warning(f"API fetch error: {e}")
         return {}
+@st.cache_data(show_spinner=False)
+def load_provider_csv() -> pd.DataFrame:
+    response = requests.get(PROVIDER_CSV_URL, timeout=300)
+    response.raise_for_status()
+    return pd.read_csv(StringIO(response.text), dtype={"cms_certification_number_ccn": str})
 
 def fetch_cms_data_csv(ccn: str) -> dict:
-    """Fetch facility data by downloading the full CSV dataset and filtering locally.
-    Uses pandas for efficient row-level filtering by CCN.
-    The CSV download URL is fetched dynamically from the dataset page.
-    """
-    with st.spinner("Fetching CSV download URL and downloading full dataset..."):
-        try:
-            csv_url = get_csv_download_url()
-            response = requests.get(csv_url, timeout=300)
-            response.raise_for_status()
-            df = pd.read_csv(StringIO(response.text))
-            match = df[df["cms_certification_number_ccn"].astype(str).str.strip() == ccn]
-            if not match.empty:
-                return match.iloc[0].to_dict()
-            return {}
-        except Exception as e:
-            st.error(f"CSV fetch error: {e}")
-            return {}
+    try:
+        df = load_provider_csv()
+        match = df[df["cms_certification_number_ccn"].astype(str).str.strip() == ccn.strip()]
+        if not match.empty:
+            return match.iloc[0].to_dict()
+        return {}
+    except Exception as e:
+        st.error(f"CSV fetch error: {e}")
+        return {}
+
+
 
 def fetch_cms_data(ccn: str) -> dict:
     """Fetch facility data - tries API first (with CCN verification), falls back to CSV."""
@@ -263,14 +241,15 @@ if fetch_clicked and ccn:
 
                 st.info("Note: STR/LT hospitalization metrics and some quality ratings are not available in the CMS 4pq5-n9py dataset.")
 
-                if st.button("Download PDF Report"):
-                    pdf_bytes = generate_pdf(facility_name, override_name, manual_data, cms_data)
-                    st.download_button(
-                        label="Download Report PDF",
-                        data=pdf_bytes,
-                        file_name=f"Snapshot_{display_name.replace(' ', '_')}.pdf",
-                        mime="application/pdf"
-                    )
+                pdf_bytes = generate_pdf(facility_name, override_name, manual_data, cms_data)
+                st.download_button(
+                    label="Download PDF",
+                    data=pdf_bytes,
+                    file_name=f"Snapshot_{display_name.replace(' ', '_')}.pdf",
+                    mime="application/pdf",
+                    use_container_width=True
+                )
+
         else:
             st.error(f"No CMS data found for CCN: {ccn}. Please check the number and try again.")
 elif fetch_clicked and not ccn:
