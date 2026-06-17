@@ -18,12 +18,14 @@ A streamlined **Facility Assessment Snapshot** tool , part of the INFINITE platf
 
 - **CCN Lookup** - Enter a CMS Certification Number (e.g., `686123`) to fetch live provider data from the [CMS Provider Data Catalog](https://data.cms.gov/provider-data/dataset/4pq5-n9py)
 - **Facility Name Override** - Manually override the CMS facility name if needed
-- **Manual Inputs** - Capture EMR System, Current Census, Type of Patient, Special Programs, and custom Notes
+- **Manual Inputs** - Capture EMR System, Current Census, Type of Patient, and custom Notes
 - **PDF Export** - Download a branded PDF snapshot report with facility data and manual inputs
 - **Static Branding** - INFINITE - Managed by MEDELITE banner is always visible
 - **Star Rating Cards** - Color-coded visual display of all four CMS star ratings
 - **Word Doc Export** - Download an editable doc version of the same report
 - **Advanced Error Handling** - CCN format validation, specific error messages, and a three-method API fallback chain to guarantee the correct facility is always returned
+- **Hospitalization & ED Metrics** - State and national averages for all 12 STR/LT hospitalization and ED metrics sourced from the CMS State/US Averages dataset
+
 
 
 ---
@@ -33,8 +35,8 @@ A streamlined **Facility Assessment Snapshot** tool , part of the INFINITE platf
 | Component | Technology |
 |-----------|------------|
 | Frontend | Streamlit (Python) |
-| Data API | CMS Provider Data Catalog (dataset `4pq5-n9py`) |
-| PDF Export | fpdf2 |
+| Data API | CMS Provider Data Catalog (dataset `4pq5-n9py`, 'xcdc-v8bm') |
+| PDF Export | ReportLab |
 | HTTP Requests | requests |
 | Deployment | Streamlit Cloud |
 | Word Export | python-docx |
@@ -83,7 +85,7 @@ Deployment settings:
 
 ## Data Source & Field Mappings
 
-All provider data is fetched from the **CMS Provider Data Catalog** (`4pq5-n9py`)[^1] using the REST API with a `$where` filter on `provider_number`.
+All provider data is fetched from the **CMS Provider Data Catalog** (`4pq5-n9py`)[^1] using the REST API with CCN conditions filter with 3-method fallback
 
 [^1]: https://data.cms.gov/provider-data/dataset/4pq5-n9py
 
@@ -94,7 +96,7 @@ All provider data is fetched from the **CMS Provider Data Catalog** (`4pq5-n9py`
 | City | `citytown` |
 | State | `state` |
 | ZIP | `zip_code` |
-| Phone | `telephone_phone` |
+| Phone | `telephone_number` |
 | Facility Type | `provider_type` |
 | Avg Residents/Day | average_number_of_residents_per_day |
 | Overall Rating | overall_rating |
