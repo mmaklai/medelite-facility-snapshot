@@ -3,3 +3,4 @@ fpdf2
 requests
 pandas
 reportlab>=4.0
+python-docx>=1.1
