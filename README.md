@@ -102,8 +102,9 @@ All provider data is fetched from the **CMS Provider Data Catalog** (`4pq5-n9py`
 
 ## Known Limitations
 
-- **STR/LT Hospitalization Metrics** — These are not available in dataset `4pq5-n9py`. Planned for a future enhancement via a separate data source.
-- **PDF Links** — Hyperlinks in the exported PDF use the CMS data catalog base URL.
+- **STR/LT Hospitalization Metrics (Facility Specific)** — Per-facility short-term and long-term hospitalization/ED scores are not exposed through any public CMS Provider Data Catalog API endpoint. The app currently displays state and national averages (sourced from the CMS State/US Averages dataset xcdc-v8bm), with facility-specific rows marked as "Not Reported" — consistent with how CMS Care Compare itself handles facilities without sufficient claims volume. A future enhancement could explore scraping the Care Compare web interface or requesting a bulk data export directly from CMS.
+
+- **PDF Hyperlinks** —  The Medicare Care Compare link in the exported PDF is dynamically generated using the searched CCN (e.g., https://www.medicare.gov/care-compare/details/nursing-home/686123). Clicking it requires a PDF viewer that supports embedded hyperlinks (Adobe Acrobat, Chrome PDF viewer).
 
 ---
 
