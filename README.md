@@ -21,6 +21,10 @@ A streamlined **Facility Assessment Snapshot** tool , part of the INFINITE platf
 - **Manual Inputs** - Capture EMR System, Current Census, Type of Patient, Special Programs, and custom Notes
 - **PDF Export** - Download a branded PDF snapshot report with facility data and manual inputs
 - **Static Branding** - INFINITE - Managed by MEDELITE banner is always visible
+- **Star Rating Cards** - Color-coded visual display of all four CMS star ratings
+- **Word Doc Export** - Download an editable doc version of the same report
+- **Advanced Error Handling** - CCN format validation, specific error messages, and a three-method API fallback chain to guarantee the correct facility is always returned
+
 
 ---
 
@@ -33,6 +37,7 @@ A streamlined **Facility Assessment Snapshot** tool , part of the INFINITE platf
 | PDF Export | fpdf2 |
 | HTTP Requests | requests |
 | Deployment | Streamlit Cloud |
+| Word Export | python-docx |
 
 ---
 
@@ -86,17 +91,31 @@ All provider data is fetched from the **CMS Provider Data Catalog** (`4pq5-n9py`
 |-----------|------------------------------|
 | Facility Name | `provider_name` |
 | Address | `provider_address` |
-| City | `provider_city` |
-| State | `provider_state` |
-| ZIP | `provider_zip_code` |
-| Phone | `provider_phone` |
-| Facility Type | `facility_type` |
-| Ownership | `ownership` |
-| Bed Count | `total_staffed_beds` |
-| CCRC | `ccrc` |
-| Medicare Participation | `medicare_participation` |
-| Hospital Referral Region | `region` |
-| CCN (Provider Number) | `provider_number` |
+| City | `citytown` |
+| State | `state` |
+| ZIP | `zip_code` |
+| Phone | `telephone_phone` |
+| Facility Type | `provider_type` |
+| Avg Residents/Day | average_number_of_residents_per_day |
+| Overall Rating | overall_rating |
+| Ownership | `ownership_type` |
+| Bed Count | `number_of_certified_beds` |
+| Health Inspection | health_inspection_rating |
+| Staffing | staffing_rating |
+| Quality of Resident Care | qm_rating |
+| CCN | cms_certification_number_ccn |
+
+---
+## State & National Averages - xcdc-v8bm
+
+Hospitalization and ED averages are sourced from the CMS NH State & US Averages dataset, filtered by state_or_nation ("NATION" for national, state abbreviation for state).
+
+| App Field | CMS API Field (`xcdc-v8bm`) |
+|-----------|------------------------------|
+| STR Hospitalization avg | percentage_of_short_stay_residents_who_were_rehospitalized__1d02 |
+| STR ED Visit avg | percentage_of_short_stay_residents_who_had_an_outpatient_em_d911 |
+| LT Hospitalization avg | number_of_hospitalizations_per_1000_longstay_resident_days |
+| LT ED Visit avg | number_of_outpatient_emergency_department_visits_per_1000_l_de9d |
 
 ---
 
@@ -105,6 +124,8 @@ All provider data is fetched from the **CMS Provider Data Catalog** (`4pq5-n9py`
 - **STR/LT Hospitalization Metrics (Facility Specific)** - Per-facility short-term and long-term hospitalization/ED scores are not exposed through any public CMS Provider Data Catalog API endpoint. The app currently displays state and national averages (sourced from the CMS State/US Averages dataset xcdc-v8bm), with facility-specific rows marked as "Not Reported" , consistent with how CMS Care Compare itself handles facilities without sufficient claims volume. A future enhancement could explore scraping the Care Compare web interface or requesting a bulk data export directly from CMS.
 
 - **PDF Hyperlinks** -  The Medicare Care Compare link in the exported PDF is dynamically generated using the searched CCN (e.g., https://www.medicare.gov/care-compare/details/nursing-home/686123). Clicking it requires a PDF viewer that supports embedded hyperlinks (Adobe Acrobat, Chrome PDF viewer).
+
+- **Star Rating Accuracy** - Ratings reflect live CMS data at the time of lookup. The reference PDF included in the project brief was generated from an earlier CMS data snapshot and may show different values for the same facility.
 
 ---
 
