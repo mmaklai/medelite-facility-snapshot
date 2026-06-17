@@ -1,5 +1,4 @@
 streamlit>=1.30
-fpdf2
 requests
 pandas
 reportlab>=4.0
