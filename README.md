@@ -4,7 +4,7 @@
 ![Platform](https://img.shields.io/badge/Platform-Streamlit-red)
 ![Data](https://img.shields.io/badge/Data-CMS-blue)
 
-A streamlined **Facility Assessment Snapshot** tool , part of the INFINITE platform by MEDELITE. Retrieve CMS provider data by CCN, input manual facility metrics, and export branded PDF reports.
+A streamlined **Facility Assessment Snapshot** tool , part of the INFINITE platform by MEDELITE. Retrieve CMS provider data by CCN, input manual facility metrics, and export branded PDF reports and Word reports.
 
 ---
 
@@ -35,7 +35,7 @@ A streamlined **Facility Assessment Snapshot** tool , part of the INFINITE platf
 | Component | Technology |
 |-----------|------------|
 | Frontend | Streamlit (Python) |
-| Data API | CMS Provider Data Catalog (dataset `4pq5-n9py`, 'xcdc-v8bm') |
+| Data API | CMS Provider Data Catalog (\4pq5-n9py`, `xcdc-v8bm`)` |
 | PDF Export | ReportLab |
 | HTTP Requests | requests |
 | Deployment | Streamlit Cloud |
@@ -85,7 +85,8 @@ Deployment settings:
 
 ## Data Source & Field Mappings
 
-All provider data is fetched from the **CMS Provider Data Catalog** (`4pq5-n9py`)[^1] using the REST API with CCN conditions filter with 3-method fallback
+All facility data is fetched from the CMS Provider Data Catalog using the REST API with a CCN-based conditions filter on cms_certification_number_ccn. A three-method fallback chain (POST JSON → GET params → client-side page scan) handles API inconsistencies and guarantees the correct facility record is always returned.
+
 
 [^1]: https://data.cms.gov/provider-data/dataset/4pq5-n9py
 
