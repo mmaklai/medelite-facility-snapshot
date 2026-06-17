@@ -2,4 +2,3 @@ streamlit
 fpdf2
 requests
 pandas
-beautifulsoup4
