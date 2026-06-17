@@ -93,7 +93,7 @@ def generate_pdf(facility_name: str, override_name: str, manual_data: dict, cms_
 
     # Header Bar
     pdf.set_fill_color(0, 51, 102)
-    pdf.rect(0, 0, 210, 15, fill=True, style="F")
+    pdf.rect(0, 0, 210, 15, style="F")
     pdf.set_font("Arial", "B", 12)
     pdf.set_text_color(255, 255, 255)
     pdf.cell(0, 10, "INFINITE - Managed by MEDELITE", align="C")
