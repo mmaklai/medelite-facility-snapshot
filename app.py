@@ -79,11 +79,6 @@ def fetch_cms_data_csv(ccn: str) -> dict:
 
 
 def fetch_cms_data(ccn: str) -> dict:
-    """Fetch facility data - tries API first (with CCN verification), falls back to CSV."""
-    cms_data = fetch_cms_data_api(ccn)
-    if cms_data:
-        return cms_data
-    st.info("API returned no results or wrong CCN. Fetching full dataset for local filtering...")
     return fetch_cms_data_csv(ccn)
 
 def generate_pdf(facility_name: str, override_name: str, manual_data: dict, cms_data: dict) -> bytes:
